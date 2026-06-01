@@ -202,8 +202,6 @@ td.num input { text-align:right; }
       <select class="sort-select" id="sortField" onchange="applySortFromUI()">
         <option value="">— 기본 순서</option>
         <option value="date">날짜</option>
-        <option value="category">카테고리</option>
-        <option value="name">게시물</option>
         <option value="views">조회</option>
         <option value="reach">도달</option>
         <option value="profile_visits">프로필 방문</option>
@@ -552,10 +550,18 @@ function toggleSortDir() {
   applySort();
 }
 
+function dateToNum(d) {
+  // "05월 01일" → 501, "05.01" → 501, etc.
+  if (!d) return 0;
+  const nums = d.replace(/\D/g, '');
+  return parseInt(nums) || 0;
+}
+
 function applySort() {
   if (sortField) {
     posts.sort((a, b) => {
       const av = a[sortField], bv = b[sortField];
+      if (sortField === 'date') return (dateToNum(av) - dateToNum(bv)) * sortDir;
       const an = parseFloat(av), bn = parseFloat(bv);
       if (!isNaN(an) && !isNaN(bn)) return (an - bn) * sortDir;
       return String(av||'').localeCompare(String(bv||''), 'ko') * sortDir;
