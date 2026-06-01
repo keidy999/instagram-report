@@ -185,6 +185,19 @@ td.num input { text-align:right; }
       <button class="btn btn-dark" onclick="addRow()">+ 게시물 추가</button>
     </div>
     <div class="sort-bar">
+      <label>필터</label>
+      <select class="sort-select" id="filterCategory" onchange="applyFilter()" style="width:100px">
+        <option value="">전체 카테고리</option>
+        <option value="발매">발매</option>
+        <option value="가사">가사</option>
+        <option value="뉴스">뉴스</option>
+        <option value="특별">특별</option>
+      </select>
+      <select class="sort-select" id="filterMonth" onchange="applyFilter()" style="width:100px">
+        <option value="">전체 월</option>
+      </select>
+      <span id="filterCount" style="font-size:11px;color:var(--sub)"></span>
+      <span style="flex:1"></span>
       <label>정렬</label>
       <select class="sort-select" id="sortField" onchange="applySortFromUI()">
         <option value="">— 기본 순서</option>
@@ -522,7 +535,7 @@ function updateSummary() {
   document.getElementById('topSavePost').textContent=ts?.name?`최고: ${ts.name}`:'—';
 }
 
-function update() { updateRadar(); updateBar(); updateHeatmap(); updateSummary(); }
+function update() { updateRadar(); updateBar(); updateHeatmap(); updateSummary(); updateMonthFilter(); applyFilter(); }
 
 // ── SORT ─────────────────────────────────────────
 let sortField = null, sortDir = 1;
@@ -540,22 +553,54 @@ function toggleSortDir() {
 }
 
 function applySort() {
-  if (!sortField) {
-    // 기본 순서 복원 불가(입력 순 유지) — 재렌더만
-    document.getElementById('postBody').innerHTML = '';
-    posts.forEach(p => renderRow(p));
-    update();
-    return;
+  if (sortField) {
+    posts.sort((a, b) => {
+      const av = a[sortField], bv = b[sortField];
+      const an = parseFloat(av), bn = parseFloat(bv);
+      if (!isNaN(an) && !isNaN(bn)) return (an - bn) * sortDir;
+      return String(av||'').localeCompare(String(bv||''), 'ko') * sortDir;
+    });
   }
-  posts.sort((a, b) => {
-    const av = a[sortField], bv = b[sortField];
-    const an = parseFloat(av), bn = parseFloat(bv);
-    if (!isNaN(an) && !isNaN(bn)) return (an - bn) * sortDir;
-    return String(av||'').localeCompare(String(bv||''), 'ko') * sortDir;
-  });
   document.getElementById('postBody').innerHTML = '';
   posts.forEach(p => renderRow(p));
+  applyFilter();
   update();
+}
+
+// ── FILTER ───────────────────────────────────────
+function applyFilter() {
+  const catVal = document.getElementById('filterCategory').value;
+  const monVal = document.getElementById('filterMonth').value;
+  let visible = 0;
+
+  posts.forEach(p => {
+    const tr = document.getElementById('row-' + p.id);
+    if (!tr) return;
+    const catMatch = !catVal || p.category === catVal;
+    const monMatch = !monVal || (p.date && p.date.startsWith(monVal));
+    const show = catMatch && monMatch;
+    tr.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+
+  const total = posts.length;
+  const countEl = document.getElementById('filterCount');
+  if (catVal || monVal) {
+    countEl.textContent = `${visible} / ${total}개`;
+    countEl.style.color = visible < total ? 'var(--pink)' : 'var(--sub)';
+  } else {
+    countEl.textContent = '';
+  }
+}
+
+function updateMonthFilter() {
+  const sel = document.getElementById('filterMonth');
+  const current = sel.value;
+  const months = [...new Set(
+    posts.map(p => p.date ? p.date.slice(0,2) : '').filter(Boolean)
+  )].sort();
+  sel.innerHTML = '<option value="">전체 월</option>' +
+    months.map(m => `<option value="${m}" ${m===current?'selected':''}>${m}월</option>`).join('');
 }
 
 // ── INIT ──────────────────────────────────────────
