@@ -355,7 +355,7 @@ function renderRow(post) {
   const catClass = post.category ? 'cat-' + post.category : 'cat-none';
   tr.innerHTML = `
     <td class="dot-cell"><div class="dot" style="background:${post.color}"></div></td>
-    <td style="width:72px"><input type="text" placeholder="0501" value="${esc(post.date)}" data-id="${post.id}" data-field="date" maxlength="5" style="width:64px"/></td>
+    <td style="width:80px"><input type="text" placeholder="0501" value="${esc(post.date)}" data-id="${post.id}" data-field="date" maxlength="8" style="width:72px"/></td>
     <td style="width:64px;text-align:center">
       <select class="cat-select ${catClass}" data-id="${post.id}" data-field="category">
         <option value="" ${!post.category?'selected':''}>—</option>
@@ -373,8 +373,8 @@ function renderRow(post) {
   const dateInp = tr.querySelector('input[data-field="date"]');
   if (dateInp) {
     dateInp.addEventListener('input', () => {
-      let v = dateInp.value.replace(/\D/g, '');
-      if (v.length === 4) v = v.slice(0,2) + '.' + v.slice(2);
+      let v = dateInp.value.replace(/[^\d]/g, '');
+      if (v.length === 4) v = v.slice(0,2) + '월 ' + v.slice(2) + '일';
       dateInp.value = v;
       const p = posts.find(p => String(p.id) === String(dateInp.dataset.id));
       if (p) { p.date = v; update(); scheduleSave(); }
@@ -577,7 +577,7 @@ function applyFilter() {
     const tr = document.getElementById('row-' + p.id);
     if (!tr) return;
     const catMatch = !catVal || p.category === catVal;
-    const monMatch = !monVal || (p.date && p.date.startsWith(monVal));
+    const monMatch = !monVal || (p.date && p.date.split('월')[0] === monVal);
     const show = catMatch && monMatch;
     tr.style.display = show ? '' : 'none';
     if (show) visible++;
@@ -597,10 +597,10 @@ function updateMonthFilter() {
   const sel = document.getElementById('filterMonth');
   const current = sel.value;
   const months = [...new Set(
-    posts.map(p => p.date ? p.date.slice(0,2) : '').filter(Boolean)
-  )].sort();
+    posts.map(p => p.date ? p.date.split('월')[0] : '').filter(Boolean)
+  )].sort((a,b) => parseInt(a)-parseInt(b));
   sel.innerHTML = '<option value="">전체 월</option>' +
-    months.map(m => `<option value="${m}" ${m===current?'selected':''}>${m}월</option>`).join('');
+    months.map(m => `<option value="${m}" ${m===current?'selected':''}>${parseInt(m)}월</option>`).join('');
 }
 
 // ── INIT ──────────────────────────────────────────
