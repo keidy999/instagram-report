@@ -514,10 +514,10 @@ function updateBar() {
   barChart.data.labels = sorted.map((p,i)=>p.name||`게시물 ${i+1}`);
   barChart.data.datasets = [{ data:sorted.map(p=>parseFloat(p[activeMetric])||0),
     backgroundColor:sorted.map(p=>p.color+'CC'), borderColor:sorted.map(p=>p.color),
-    borderWidth:1.5, borderRadius:5 }];
+    borderWidth:1.5, borderRadius:4, barThickness:14 }];
 
   // 게시물 수에 따라 높이 동적 조정 (행당 36px, 최소 120px)
-  const h = Math.max(120, sorted.length * 36);
+  const h = Math.max(80, sorted.length * 26);
   document.getElementById('barChartWrap').style.height = h + 'px';
   barChart.resize();
   barChart.update('active');
