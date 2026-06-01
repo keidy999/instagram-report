@@ -162,7 +162,7 @@ td.num input { text-align:right; }
       </div>
       <div id="postSummaryTable" style="flex:1;overflow-y:auto"></div>
     </div>
-    <div class="chart-card">
+    <div class="chart-card" style="padding-bottom:14px">
       <h2>지표별 순위</h2>
       <div class="filter-pills" id="filterBar">
         <span class="pill active" onclick="setMetric(this,'views')">조회</span>
@@ -174,7 +174,11 @@ td.num input { text-align:right; }
         <span class="pill" onclick="setMetric(this,'comments')">댓글</span>
         <span class="pill" onclick="setMetric(this,'engaged')">참여계정</span>
       </div>
-      <div class="chart-wrap" style="height:200px"><canvas id="barChart"></canvas></div>
+      <div id="barChartScroll" style="overflow-y:auto;max-height:260px">
+        <div id="barChartWrap" style="position:relative;height:200px">
+          <canvas id="barChart"></canvas>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -495,9 +499,13 @@ function buildBar() {
   barChart = new Chart(document.getElementById('barChart').getContext('2d'), {
     type:'bar', data:{ labels:[], datasets:[] },
     options:{ responsive:true, maintainAspectRatio:false, indexAxis:'y',
+      layout:{ padding:{ bottom:0, top:0 } },
       plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:c=>METRIC_LABELS[activeMetric]+': '+(c.parsed.x||0).toLocaleString('ko-KR') }} },
-      scales:{ x:{ grid:{color:'#F0F0F0'}, ticks:{font:{size:10},color:'#888',callback:v=>v>=1000?(v/1000).toFixed(1)+'k':v} },
-               y:{ grid:{display:false}, ticks:{font:{size:11},color:'#555'} } } }
+      scales:{
+        x:{ grid:{color:'#F0F0F0'}, ticks:{font:{size:10},color:'#888',callback:v=>v>=1000?(v/1000).toFixed(1)+'k':v} },
+        y:{ grid:{display:false}, ticks:{font:{size:11},color:'#555'}, afterFit: s=>{ s.width=Math.min(s.width,120); } }
+      }
+    }
   });
 }
 
@@ -507,6 +515,11 @@ function updateBar() {
   barChart.data.datasets = [{ data:sorted.map(p=>parseFloat(p[activeMetric])||0),
     backgroundColor:sorted.map(p=>p.color+'CC'), borderColor:sorted.map(p=>p.color),
     borderWidth:1.5, borderRadius:5 }];
+
+  // 게시물 수에 따라 높이 동적 조정 (행당 36px, 최소 120px)
+  const h = Math.max(120, sorted.length * 36);
+  document.getElementById('barChartWrap').style.height = h + 'px';
+  barChart.resize();
   barChart.update('active');
 }
 
