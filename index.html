@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Instagram Post Insights</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --pink: #E1306C; --purple: #833AB4; --blue: #405DE6; --orange: #F77737;
+  --green: #2F9E44; --bg: #F2F2F2; --card: #FFFFFF;
+  --text: #1A1A1A; --sub: #888; --border: #EBEBEB; --radius: 14px;
+}
+body { font-family: -apple-system,'Helvetica Neue',Arial,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; padding:32px 20px 60px; }
+.wrap { max-width:960px; margin:0 auto; }
+
+/* HEADER */
+.header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:12px; }
+.header-left h1 { font-size:20px; font-weight:700; letter-spacing:-0.02em; }
+.header-left p { font-size:12px; color:var(--sub); margin-top:3px; }
+.header-meta { display:flex; align-items:center; gap:8px; }
+.header-meta input { border:1px solid var(--border); border-radius:8px; padding:6px 12px; font-size:12px; outline:none; background:white; color:var(--text); width:130px; }
+.header-meta input:focus { border-color:var(--pink); }
+
+/* SHEETS SETUP BAR */
+.sheets-bar { background:white; border-radius:var(--radius); padding:14px 20px; margin-bottom:14px; box-shadow:0 1px 4px rgba(0,0,0,.06); display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.sheets-bar label { font-size:11px; font-weight:700; color:var(--sub); letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; }
+.sheets-bar input { flex:1; min-width:200px; border:1.5px solid var(--border); border-radius:8px; padding:7px 12px; font-size:12px; font-family:monospace; outline:none; color:var(--text); }
+.sheets-bar input:focus { border-color:var(--pink); }
+.sheets-bar input::placeholder { color:#ccc; }
+.sync-status { font-size:11px; font-weight:600; white-space:nowrap; }
+.sync-status.ok { color:var(--green); }
+.sync-status.err { color:var(--pink); }
+.sync-status.loading { color:var(--sub); }
+
+/* SAVE BAR */
+.save-bar { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; padding:10px 16px; background:white; border-radius:10px; box-shadow:0 1px 4px rgba(0,0,0,.06); flex-wrap:wrap; gap:8px; }
+.save-status { font-size:12px; color:var(--sub); }
+.save-status b { color:var(--green); }
+.footer-btns { display:flex; gap:8px; }
+
+/* BUTTONS */
+.btn { display:inline-flex; align-items:center; gap:5px; border:none; border-radius:8px; padding:7px 14px; font-size:12px; font-weight:600; cursor:pointer; transition:background .15s; }
+.btn-dark { background:var(--text); color:white; }
+.btn-dark:hover { background:var(--pink); }
+.btn-outline { background:transparent; color:var(--sub); border:1.5px solid var(--border); }
+.btn-outline:hover { border-color:var(--pink); color:var(--pink); }
+.btn-green { background:var(--green); color:white; }
+.btn-green:hover { background:#237a32; }
+.btn-sm { padding:5px 10px; font-size:11px; }
+
+/* SUMMARY */
+.summary-row { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:16px; }
+.sum-card { background:var(--card); border-radius:var(--radius); padding:18px 20px; box-shadow:0 1px 4px rgba(0,0,0,.06); }
+.sum-card .lbl { font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--sub); margin-bottom:8px; }
+.sum-card .val { font-size:26px; font-weight:700; letter-spacing:-.02em; }
+.sum-card .sub { font-size:11px; color:var(--sub); margin-top:4px; }
+.c-pink{color:var(--pink)} .c-purple{color:var(--purple)} .c-blue{color:var(--blue)} .c-orange{color:var(--orange)}
+
+/* CHARTS */
+.charts-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+.chart-card { background:var(--card); border-radius:var(--radius); padding:24px; box-shadow:0 1px 4px rgba(0,0,0,.06); }
+.chart-card h2 { font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--sub); margin-bottom:16px; }
+.chart-wrap { position:relative; height:260px; }
+.legend { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
+.legend-item { display:flex; align-items:center; gap:5px; font-size:11px; color:var(--sub); }
+.legend-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.filter-pills { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+.pill { padding:4px 10px; border-radius:20px; border:1.5px solid var(--border); background:white; font-size:11px; font-weight:600; cursor:pointer; color:var(--sub); transition:all .15s; }
+.pill.active { background:var(--text); color:white; border-color:var(--text); }
+
+/* TABLE */
+.posts-card { background:var(--card); border-radius:var(--radius); padding:24px; box-shadow:0 1px 4px rgba(0,0,0,.06); margin-bottom:16px; }
+.posts-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; }
+.posts-header h2 { font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--sub); }
+.tbl-wrap { overflow-x:auto; }
+table { width:100%; border-collapse:collapse; font-size:13px; min-width:720px; }
+thead th { font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--sub); padding:8px 10px; text-align:right; border-bottom:2px solid var(--border); white-space:nowrap; }
+thead th:nth-child(1),thead th:nth-child(2),thead th:nth-child(3),thead th:nth-child(4) { text-align:left; }
+/* SORT BAR */
+.sort-bar { display:flex; align-items:center; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
+.sort-bar label { font-size:11px; font-weight:700; color:var(--sub); letter-spacing:.06em; text-transform:uppercase; }
+.sort-select { border:1.5px solid var(--border); border-radius:8px; padding:5px 10px; font-size:12px; font-weight:600; outline:none; background:white; color:var(--text); cursor:pointer; }
+.sort-select:focus { border-color:var(--pink); }
+.sort-dir-btn { border:1.5px solid var(--border); border-radius:8px; padding:5px 12px; font-size:12px; font-weight:700; background:white; cursor:pointer; color:var(--sub); transition:all .15s; }
+.sort-dir-btn:hover, .sort-dir-btn.active { background:var(--text); color:white; border-color:var(--text); }
+tbody tr { border-bottom:1px solid var(--border); }
+tbody tr:last-child { border-bottom:none; }
+.dot-cell { width:28px; padding:0 4px; }
+.dot { width:9px; height:9px; border-radius:50%; margin:0 auto; }
+td input[type=text],td input[type=number] { border:none; outline:none; background:transparent; font-size:13px; color:var(--text); width:100%; padding:10px 8px; font-family:inherit; -moz-appearance:textfield; }
+td input[type=number]::-webkit-outer-spin-button,td input[type=number]::-webkit-inner-spin-button { -webkit-appearance:none; }
+td input::placeholder { color:#ccc; }
+td input:focus { background:#FFF8FB; }
+td.num input { text-align:right; }
+.hm { transition:background .3s; border-radius:4px; }
+.del-btn { background:none; border:none; cursor:pointer; color:#ccc; font-size:16px; padding:8px; transition:color .15s; }
+.del-btn:hover { color:var(--pink); }
+
+/* CATEGORY */
+.cat-select { border:none; outline:none; font-size:11px; font-weight:700; cursor:pointer; padding:3px 8px; border-radius:5px; width:100%; font-family:inherit; appearance:none; text-align:center; }
+.cat-발매 { background:#FFF0F5; color:#E1306C; }
+.cat-가사  { background:#F3EDFF; color:#833AB4; }
+.cat-뉴스  { background:#EBF4FF; color:#405DE6; }
+.cat-특별  { background:#FFF8E8; color:#E67700; }
+.cat-none  { background:#F5F5F5; color:#aaa; }
+
+@media print {
+  body { background:white; }
+  .sheets-bar,.save-bar,.del-btn,.footer-btns { display:none; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-left">
+      <h1>📸 Post Insights Report</h1>
+      <p id="accountDisplay">계정명을 입력하세요</p>
+    </div>
+    <div class="header-meta">
+      <input type="text" id="accountName" placeholder="@account_name" />
+      <input type="text" id="dateRange" placeholder="2026.05" />
+    </div>
+  </div>
+
+  <!-- GOOGLE SHEETS 연동 -->
+  <div class="sheets-bar">
+    <label>🔗 Google Sheets</label>
+    <input type="text" id="sheetsUrl" placeholder="Apps Script 웹 앱 URL을 붙여넣으세요 (배포 후 복사한 URL)" />
+    <button class="btn btn-green btn-sm" onclick="loadFromSheets()">불러오기</button>
+    <button class="btn btn-dark btn-sm" onclick="saveToSheets()">저장</button>
+    <span class="sync-status" id="syncStatus">— 미연결</span>
+  </div>
+
+  <!-- SAVE BAR -->
+  <div class="save-bar">
+    <div class="save-status">💾 로컬 자동저장 · <b id="saveTime">저장된 기록 없음</b></div>
+    <div class="footer-btns">
+      <button class="btn btn-outline" onclick="clearAll()">초기화</button>
+      <button class="btn btn-dark" onclick="window.print()">🖨 출력 / PDF</button>
+    </div>
+  </div>
+
+  <!-- SUMMARY -->
+  <div class="summary-row">
+    <div class="sum-card"><div class="lbl">평균 조회</div><div class="val c-pink" id="avgViews">—</div><div class="sub" id="totalPosts">게시물 0개</div></div>
+    <div class="sum-card"><div class="lbl">평균 좋아요</div><div class="val c-purple" id="avgLikes">—</div><div class="sub" id="topLikePost">—</div></div>
+    <div class="sum-card"><div class="lbl">평균 저장</div><div class="val c-blue" id="avgSaves">—</div><div class="sub" id="topSavePost">—</div></div>
+    <div class="sum-card"><div class="lbl">평균 참여율</div><div class="val c-orange" id="avgEr">—</div><div class="sub">(좋아요+댓글+저장) / 조회</div></div>
+  </div>
+
+  <!-- CHARTS -->
+  <div class="charts-row">
+    <div class="chart-card" style="display:flex;flex-direction:column">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <h2 style="margin:0">게시물 요약</h2>
+        <select id="postSummarySelect" class="sort-select" onchange="radarIdx=parseInt(this.value);updateRadar()" style="max-width:200px"></select>
+      </div>
+      <div id="postSummaryTable" style="flex:1;overflow-y:auto"></div>
+    </div>
+    <div class="chart-card">
+      <h2>지표별 순위</h2>
+      <div class="filter-pills" id="filterBar">
+        <span class="pill active" onclick="setMetric(this,'views')">조회</span>
+        <span class="pill" onclick="setMetric(this,'reach')">도달</span>
+        <span class="pill" onclick="setMetric(this,'profile_visits')">프로필 방문</span>
+        <span class="pill" onclick="setMetric(this,'likes')">좋아요</span>
+        <span class="pill" onclick="setMetric(this,'shares')">공유</span>
+        <span class="pill" onclick="setMetric(this,'saves')">저장</span>
+        <span class="pill" onclick="setMetric(this,'comments')">댓글</span>
+        <span class="pill" onclick="setMetric(this,'engaged')">참여계정</span>
+      </div>
+      <div class="chart-wrap" style="height:200px"><canvas id="barChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="posts-card">
+    <div class="posts-header">
+      <h2>게시물별 데이터 <span style="font-weight:400;color:#bbb;font-size:10px;text-transform:none;letter-spacing:0">&nbsp;· 색 농도 = 상대적 성과</span></h2>
+      <button class="btn btn-dark" onclick="addRow()">+ 게시물 추가</button>
+    </div>
+    <div class="sort-bar">
+      <label>정렬</label>
+      <select class="sort-select" id="sortField" onchange="applySortFromUI()">
+        <option value="">— 기본 순서</option>
+        <option value="date">날짜</option>
+        <option value="category">카테고리</option>
+        <option value="name">게시물</option>
+        <option value="views">조회</option>
+        <option value="reach">도달</option>
+        <option value="profile_visits">프로필 방문</option>
+        <option value="likes">좋아요</option>
+        <option value="shares">공유</option>
+        <option value="saves">저장</option>
+        <option value="comments">댓글</option>
+        <option value="engaged">참여 계정</option>
+      </select>
+      <button class="sort-dir-btn" id="sortDirBtn" onclick="toggleSortDir()">↑ 오름차순</button>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th class="dot-cell"></th>
+          <th>날짜</th><th>카테고리</th><th>게시물</th>
+          <th>조회</th><th>도달</th><th>프로필 방문</th><th>좋아요</th><th>공유</th><th>저장</th><th>댓글</th><th>참여 계정</th>
+          <th></th>
+        </tr></thead>
+        <tbody id="postBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const COLORS = ['#E1306C','#833AB4','#405DE6','#F77737','#12B886','#F03E3E','#1C7ED6','#E67700','#2F9E44','#9C36B5'];
+const METRICS = ['views','reach','profile_visits','likes','shares','saves','comments','engaged'];
+const METRIC_LABELS = {views:'조회',reach:'도달',profile_visits:'프로필 방문',likes:'좋아요',shares:'공유',saves:'저장',comments:'댓글',engaged:'참여계정'};
+const LS_KEY = 'ig_report_v3';
+const LS_URL_KEY = 'ig_sheets_url';
+
+let posts = [];
+let barChart = null;
+let activeMetric = 'views';
+let saveTimer = null, sheetsTimer = null;
+
+// ── LOCAL STORAGE ────────────────────────────────
+function localSave() {
+  const data = {
+    account: document.getElementById('accountName').value,
+    date: document.getElementById('dateRange').value,
+    posts,
+    savedAt: new Date().toLocaleString('ko-KR')
+  };
+  localStorage.setItem(LS_KEY, JSON.stringify(data));
+  document.getElementById('saveTime').textContent = data.savedAt;
+}
+
+function localLoad() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    if (data.account) { document.getElementById('accountName').value = data.account; syncAccountDisplay(); }
+    if (data.date) document.getElementById('dateRange').value = data.date;
+    if (data.savedAt) document.getElementById('saveTime').textContent = data.savedAt;
+    (data.posts || []).forEach(p => addRow(p, true));
+    return (data.posts || []).length > 0;
+  } catch(e) { return false; }
+}
+
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => { localSave(); scheduleSheetsSave(); }, 800);
+}
+
+// ── GOOGLE SHEETS ────────────────────────────────
+function getUrl() {
+  const url = document.getElementById('sheetsUrl').value.trim();
+  if (url) localStorage.setItem(LS_URL_KEY, url);
+  return url;
+}
+
+function setSyncStatus(msg, type = '') {
+  const el = document.getElementById('syncStatus');
+  el.textContent = msg;
+  el.className = 'sync-status ' + type;
+}
+
+async function loadFromSheets() {
+  const url = getUrl();
+  if (!url) { alert('Apps Script URL을 먼저 입력해주세요.'); return; }
+  setSyncStatus('불러오는 중...', 'loading');
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    // 기존 rows 제거 후 로드
+    posts = [];
+    document.getElementById('postBody').innerHTML = '';
+    (Array.isArray(data) ? data : []).forEach(p => addRow(p, true));
+    update();
+    setSyncStatus('✓ 불러오기 완료 · ' + new Date().toLocaleTimeString('ko-KR'), 'ok');
+    localSave();
+  } catch(e) {
+    setSyncStatus('✗ 오류: ' + e.message, 'err');
+  }
+}
+
+async function saveToSheets() {
+  const url = getUrl();
+  if (!url) { alert('Apps Script URL을 먼저 입력해주세요.'); return; }
+  setSyncStatus('저장 중...', 'loading');
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      body: JSON.stringify(posts),
+      headers: { 'Content-Type': 'text/plain' } // Apps Script CORS 이슈 우회
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    setSyncStatus('✓ Sheets 저장됨 · ' + new Date().toLocaleTimeString('ko-KR'), 'ok');
+  } catch(e) {
+    setSyncStatus('✗ 오류: ' + e.message, 'err');
+  }
+}
+
+function scheduleSheetsSave() {
+  const url = document.getElementById('sheetsUrl').value.trim();
+  if (!url) return;
+  clearTimeout(sheetsTimer);
+  sheetsTimer = setTimeout(saveToSheets, 3000); // 3초 후 Sheets에도 저장
+}
+
+// ── ROWS ─────────────────────────────────────────
+function addRow(data = {}, silent = false) {
+  const id = data.id || (Date.now() + Math.random());
+  const color = COLORS[posts.length % COLORS.length];
+  const post = { id, color, name: data.name||'', category: data.category||'', date: data.date||'',
+    views:data.views??'', reach:data.reach??'', likes:data.likes??'',
+    shares:data.shares??'', saves:data.saves??'', comments:data.comments??'', engaged:data.engaged??'',
+    profile_visits:data.profile_visits??'' };
+  posts.push(post);
+  renderRow(post);
+  if (!silent) { update(); scheduleSave(); }
+}
+
+function renderRow(post) {
+  const existing = document.getElementById('row-' + post.id);
+  if (existing) existing.remove();
+  const tbody = document.getElementById('postBody');
+  const tr = document.createElement('tr');
+  tr.id = 'row-' + post.id;
+  const numFields = ['views','reach','profile_visits','likes','shares','saves','comments','engaged'];
+  const catClass = post.category ? 'cat-' + post.category : 'cat-none';
+  tr.innerHTML = `
+    <td class="dot-cell"><div class="dot" style="background:${post.color}"></div></td>
+    <td style="width:72px"><input type="text" placeholder="0501" value="${esc(post.date)}" data-id="${post.id}" data-field="date" maxlength="5" style="width:64px"/></td>
+    <td style="width:64px;text-align:center">
+      <select class="cat-select ${catClass}" data-id="${post.id}" data-field="category">
+        <option value="" ${!post.category?'selected':''}>—</option>
+        <option value="발매" ${post.category==='발매'?'selected':''}>발매</option>
+        <option value="가사" ${post.category==='가사'?'selected':''}>가사</option>
+        <option value="뉴스" ${post.category==='뉴스'?'selected':''}>뉴스</option>
+        <option value="특별" ${post.category==='특별'?'selected':''}>특별</option>
+      </select>
+    </td>
+    <td><input type="text" placeholder="게시물 제목" value="${esc(post.name)}" data-id="${post.id}" data-field="name"/></td>
+    ${numFields.map(f=>`<td class="num hm" id="hm-${post.id}-${f}"><input type="number" placeholder="—" value="${post[f]}" data-id="${post.id}" data-field="${f}"/></td>`).join('')}
+    <td><button class="del-btn" onclick="deleteRow('${post.id}')">×</button></td>`;
+  tbody.appendChild(tr);
+  // 날짜 자동포맷: 4자리 숫자 → MM.DD
+  const dateInp = tr.querySelector('input[data-field="date"]');
+  if (dateInp) {
+    dateInp.addEventListener('input', () => {
+      let v = dateInp.value.replace(/\D/g, '');
+      if (v.length === 4) v = v.slice(0,2) + '.' + v.slice(2);
+      dateInp.value = v;
+      const p = posts.find(p => String(p.id) === String(dateInp.dataset.id));
+      if (p) { p.date = v; update(); scheduleSave(); }
+    });
+  }
+
+  // 카테고리 select
+  const catSel = tr.querySelector('select[data-field="category"]');
+  if (catSel) {
+    catSel.addEventListener('change', () => {
+      const p = posts.find(p => String(p.id) === String(catSel.dataset.id));
+      if (p) p.category = catSel.value;
+      catSel.className = 'cat-select ' + (catSel.value ? 'cat-' + catSel.value : 'cat-none');
+      update(); scheduleSave();
+    });
+  }
+
+  tr.querySelectorAll('input:not([data-field="date"])').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const p = posts.find(p => String(p.id) === String(inp.dataset.id));
+      if (!p) return;
+      p[inp.dataset.field] = inp.type==='number' ? (inp.value===''?'':parseFloat(inp.value)) : inp.value;
+      update(); scheduleSave();
+    });
+  });
+}
+
+function deleteRow(id) {
+  posts = posts.filter(p => String(p.id) !== String(id));
+  document.getElementById('row-'+id)?.remove();
+  update(); scheduleSave();
+}
+
+function clearAll() {
+  if (!confirm('모든 데이터를 초기화할까요?')) return;
+  localStorage.removeItem(LS_KEY);
+  posts = []; document.getElementById('postBody').innerHTML = '';
+  document.getElementById('accountName').value = '';
+  document.getElementById('dateRange').value = '';
+  syncAccountDisplay();
+  document.getElementById('saveTime').textContent = '저장된 기록 없음';
+  update();
+}
+
+function syncAccountDisplay() {
+  const v = document.getElementById('accountName').value;
+  document.getElementById('accountDisplay').textContent = v || '계정명을 입력하세요';
+}
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;'); }
+
+// ── HEATMAP ──────────────────────────────────────
+function updateHeatmap() {
+  METRICS.forEach(f => {
+    const vals = posts.map(p => parseFloat(p[f])||0);
+    const max = Math.max(...vals, 1);
+    posts.forEach(p => {
+      const cell = document.getElementById(`hm-${p.id}-${f}`);
+      if (!cell) return;
+      const ratio = (parseFloat(p[f])||0) / max;
+      const r=parseInt(p.color.slice(1,3),16), g=parseInt(p.color.slice(3,5),16), b=parseInt(p.color.slice(5,7),16);
+      cell.style.background = ratio > 0.05 ? `rgba(${r},${g},${b},${0.08+ratio*0.32})` : 'transparent';
+    });
+  });
+}
+
+// ── RADAR ─────────────────────────────────────────
+let radarIdx = 0;
+
+function buildRadar() { /* 레이더 차트 미사용 */ }
+
+function updateRadar() {
+  const valid = posts.filter(p => p.name || METRICS.some(f => p[f] !== ''));
+  if (radarIdx >= valid.length) radarIdx = Math.max(0, valid.length - 1);
+  const cur = valid[radarIdx];
+
+  // 드롭다운 업데이트
+  const sel = document.getElementById('postSummarySelect');
+  sel.innerHTML = valid.length
+    ? valid.map((p, i) => `<option value="${i}" ${i===radarIdx?'selected':''}>${p.date ? p.date+' ' : ''}${p.category ? '['+p.category+'] ' : ''}${p.name||'게시물 '+(i+1)}</option>`).join('')
+    : '<option>— 게시물 없음</option>';
+
+  const el = document.getElementById('postSummaryTable');
+  if (!cur) { el.innerHTML = '<p style="color:#ccc;font-size:12px;text-align:center;padding:40px 0">게시물을 추가하세요</p>'; return; }
+
+  // 전체 게시물 max값 (바 비율용)
+  const maxVals = Object.fromEntries(METRICS.map(f => [f, Math.max(...posts.map(p => parseFloat(p[f])||0), 1)]));
+
+  // 카테고리 뱃지 색
+  const catColors = { '발매':'#FFF0F5|#E1306C', '가사':'#F3EDFF|#833AB4', '뉴스':'#EBF4FF|#405DE6', '특별':'#FFF8E8|#E67700' };
+  const [catBg, catFg] = (catColors[cur.category]||'#F5F5F5|#aaa').split('|');
+
+  el.innerHTML = `
+    <div style="margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      ${cur.date ? `<span style="font-size:12px;color:#aaa;font-weight:600">${cur.date}</span>` : ''}
+      ${cur.category ? `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;background:${catBg};color:${catFg}">${cur.category}</span>` : ''}
+      <span style="font-size:14px;font-weight:700;color:#1a1a1a">${esc(cur.name||'제목 없음')}</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      ${METRICS.map(f => {
+        const val = parseFloat(cur[f]) || 0;
+        const ratio = val / maxVals[f];
+        const r = parseInt(cur.color.slice(1,3),16), g = parseInt(cur.color.slice(3,5),16), b = parseInt(cur.color.slice(5,7),16);
+        return `
+          <div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+              <span style="font-size:11px;font-weight:600;color:#888">${METRIC_LABELS[f]}</span>
+              <span style="font-size:13px;font-weight:700;color:#1a1a1a">${val ? val.toLocaleString('ko-KR') : '—'}</span>
+            </div>
+            <div style="height:5px;background:#f0f0f0;border-radius:3px;overflow:hidden">
+              <div style="height:100%;width:${(ratio*100).toFixed(1)}%;background:rgba(${r},${g},${b},0.7);border-radius:3px;transition:width .4s"></div>
+            </div>
+          </div>`;
+      }).join('')}
+    </div>`;
+}
+
+// ── BAR ───────────────────────────────────────────
+function buildBar() {
+  barChart = new Chart(document.getElementById('barChart').getContext('2d'), {
+    type:'bar', data:{ labels:[], datasets:[] },
+    options:{ responsive:true, maintainAspectRatio:false, indexAxis:'y',
+      plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:c=>METRIC_LABELS[activeMetric]+': '+(c.parsed.x||0).toLocaleString('ko-KR') }} },
+      scales:{ x:{ grid:{color:'#F0F0F0'}, ticks:{font:{size:10},color:'#888',callback:v=>v>=1000?(v/1000).toFixed(1)+'k':v} },
+               y:{ grid:{display:false}, ticks:{font:{size:11},color:'#555'} } } }
+  });
+}
+
+function updateBar() {
+  const sorted = [...posts].filter(p=>p[activeMetric]!=='').sort((a,b)=>(parseFloat(b[activeMetric])||0)-(parseFloat(a[activeMetric])||0));
+  barChart.data.labels = sorted.map((p,i)=>p.name||`게시물 ${i+1}`);
+  barChart.data.datasets = [{ data:sorted.map(p=>parseFloat(p[activeMetric])||0),
+    backgroundColor:sorted.map(p=>p.color+'CC'), borderColor:sorted.map(p=>p.color),
+    borderWidth:1.5, borderRadius:5 }];
+  barChart.update('active');
+}
+
+function setMetric(el, metric) {
+  activeMetric = metric;
+  document.querySelectorAll('.pill').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  updateBar();
+}
+
+// ── SUMMARY ───────────────────────────────────────
+function updateSummary() {
+  document.getElementById('totalPosts').textContent = `게시물 ${posts.length}개`;
+  const avg = f => { const v=posts.filter(p=>p[f]!=='').map(p=>parseFloat(p[f])||0); return v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length):null; };
+  const fmt = v => v===null?'—':v>=1000?(v/1000).toFixed(1)+'k':v.toLocaleString('ko-KR');
+  document.getElementById('avgViews').textContent=fmt(avg('views'));
+  document.getElementById('avgLikes').textContent=fmt(avg('likes'));
+  document.getElementById('avgSaves').textContent=fmt(avg('saves'));
+  const ers=posts.filter(p=>p.views).map(p=>{ const v=parseFloat(p.views)||0; return v?((parseFloat(p.likes)||0)+(parseFloat(p.comments)||0)+(parseFloat(p.saves)||0))/v*100:null; }).filter(v=>v!==null);
+  document.getElementById('avgEr').textContent=ers.length?(ers.reduce((a,b)=>a+b,0)/ers.length).toFixed(1)+'%':'—';
+  const tl=[...posts].sort((a,b)=>(parseFloat(b.likes)||0)-(parseFloat(a.likes)||0))[0];
+  const ts=[...posts].sort((a,b)=>(parseFloat(b.saves)||0)-(parseFloat(a.saves)||0))[0];
+  document.getElementById('topLikePost').textContent=tl?.name?`최고: ${tl.name}`:'—';
+  document.getElementById('topSavePost').textContent=ts?.name?`최고: ${ts.name}`:'—';
+}
+
+function update() { updateRadar(); updateBar(); updateHeatmap(); updateSummary(); }
+
+// ── SORT ─────────────────────────────────────────
+let sortField = null, sortDir = 1;
+
+function applySortFromUI() {
+  sortField = document.getElementById('sortField').value || null;
+  applySort();
+}
+
+function toggleSortDir() {
+  sortDir *= -1;
+  const btn = document.getElementById('sortDirBtn');
+  btn.textContent = sortDir === 1 ? '↑ 오름차순' : '↓ 내림차순';
+  applySort();
+}
+
+function applySort() {
+  if (!sortField) {
+    // 기본 순서 복원 불가(입력 순 유지) — 재렌더만
+    document.getElementById('postBody').innerHTML = '';
+    posts.forEach(p => renderRow(p));
+    update();
+    return;
+  }
+  posts.sort((a, b) => {
+    const av = a[sortField], bv = b[sortField];
+    const an = parseFloat(av), bn = parseFloat(bv);
+    if (!isNaN(an) && !isNaN(bn)) return (an - bn) * sortDir;
+    return String(av||'').localeCompare(String(bv||''), 'ko') * sortDir;
+  });
+  document.getElementById('postBody').innerHTML = '';
+  posts.forEach(p => renderRow(p));
+  update();
+}
+
+// ── INIT ──────────────────────────────────────────
+document.getElementById('accountName').addEventListener('input', () => { syncAccountDisplay(); scheduleSave(); });
+document.getElementById('dateRange').addEventListener('input', scheduleSave);
+
+buildRadar(); buildBar();
+
+// Sheets URL 복원
+const savedUrl = localStorage.getItem(LS_URL_KEY);
+if (savedUrl) document.getElementById('sheetsUrl').value = savedUrl;
+
+// 로컬 데이터 로드
+const hasLocal = localLoad();
+if (!hasLocal) { addRow({},true); addRow({},true); addRow({},true); }
+update();
+</script>
+</body>
+</html>
